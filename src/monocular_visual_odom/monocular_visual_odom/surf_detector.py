@@ -12,8 +12,9 @@ class MySurf(Node):
 
     def __init__(self):
         super().__init__("surf_detector")
-        self.root = os.getcwd()
-        self.img_path = os.path.join(self.root, 'datasets/KITTI_sequence_1/image_l/000000.png')
+        self.root = os.getcwd()       
+        self.img_path = os.path.join(self.root, 'src/datasets/KITTI_sequence_1/image_l/000000.png')
+       # self.img_path = os.path.join(self.root, 'datasets/KITTI_sequence_1/image_l/000000.png')
         self.img_gray = cv.imread(self.img_path) 
 
         self.hessian_threshold = 8000 #find the hessian threshhold which will help us determine how much to keep
