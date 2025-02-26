@@ -20,7 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "surf_detector = monocular_visual_odom.surf_detector:main" # package name -> file name : Function to execute
+            "surf_detector = monocular_visual_odom.surf_detector:main", # package name -> file name : Function to execute
+            "orb_detector = monocular_visual_odom.orb_detector:main",
+            "orb_feature_matching = monocular_visual_odom.ros_orb_feature_matching:main"
         ],
     },
 )
