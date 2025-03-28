@@ -215,5 +215,19 @@ def main():
     plotting.visualize_paths(gt_path, estimated_path, "Monocular Visual Odometry Using SURF-ORB", file_out=os.path.basename(data_dir) + ".html")
 
 
+def main():
+    data = get_data()
+    vo = VisualOdometry(params)
+    output = []
+    for image in data:
+        new_pose = vo.step(image)
+        output.append(new_pose)
+    evaluate_results(output)
+
+
+def callback(self, image):
+    new_pose = self.vo.step(image)
+    self.pub.publish(new_pose)
+
 if __name__ == "__main__":
     main()
