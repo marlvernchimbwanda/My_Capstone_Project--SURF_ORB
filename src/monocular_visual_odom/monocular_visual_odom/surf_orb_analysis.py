@@ -11,8 +11,8 @@ def get_memory_usage():
 
 # Load images
 root = os.getcwd()
-img_path_1 = os.path.join(root, 'datasets/KITTI_sequence_2/image_l/000049.png')
-img_path_2 = os.path.join(root, 'datasets/KITTI_sequence_2/image_l/000050.png')
+img_path_1 = os.path.join(root, 'datasets/KITTI_sequence_2/image_l/000000.png')
+img_path_2 = os.path.join(root, 'datasets/KITTI_sequence_2/image_l/000001.png')
 
 img1 = cv2.imread(img_path_1, cv2.IMREAD_GRAYSCALE)
 img2 = cv2.imread(img_path_2, cv2.IMREAD_GRAYSCALE)
@@ -36,7 +36,6 @@ mem_before_surf_orb = get_memory_usage()
 start_time = time.time()
 kp1_surf = surf.detect(img1, None)
 kp2_surf = surf.detect(img2, None)
-
 
 # Compute ORB descriptors
 kp1_surf, des1_surf = orb.compute(img1, kp1_surf)
