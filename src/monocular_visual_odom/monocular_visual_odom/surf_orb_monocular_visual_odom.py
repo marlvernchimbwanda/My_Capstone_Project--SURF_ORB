@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import cv2
-
+import time
+import csv
 from lib.visualization import plotting
 from lib.visualization.video import play_trip
 
@@ -14,8 +15,12 @@ class VisualOdometry():
         self.gt_poses = self._load_poses(os.path.join(data_dir, "poses.txt"))
         self.images = self._load_images(os.path.join(data_dir, "image_l"))
         
+          # Folder to store match visualizations
+        self.matches_dir = os.path.join(data_dir, "surf_orb_matches")
+        os.makedirs(self.matches_dir, exist_ok=True)
+
         # Initialize SURF for keypoint detection
-        self.surf = cv2.xfeatures2d.SURF.create(hessianThreshold=50)
+        self.surf = cv2.xfeatures2d.SURF.create(hessianThreshold=300)
         # Initialize ORB for descriptor extraction
         self.orb = cv2.ORB.create(3000)
         
@@ -149,7 +154,7 @@ class VisualOdometry():
         cv2.imshow("image", img3)
         cv2.waitKey(750)
 
-        return q1, q2
+        return q1, q2 , len(matches), len(good), kp1, kp2, good
 
     def get_pose(self, q1, q2):
         """
@@ -166,7 +171,7 @@ class VisualOdometry():
         """
         E, _ = cv2.findEssentialMat(q1, q2, self.K) # the essential matrix derived from the epipolar geometry describes how points in one image corresponds to lines in the other
         # print("Essential Matrix Shape:", E.shape)
-        print("Essential Matrix:", E)
+        # print("Essential Matrix:", E)
 
         R, t = self.decomp_essential_mat(E, q1, q2) #after decompose we get rotation and translation
         transformation_matrix = self._form_transf(R, np.squeeze(t))
@@ -224,29 +229,54 @@ class VisualOdometry():
 
 def main():
     root = os.getcwd()
-    data_dir = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets /KITTI_sequence_3') #"/home/uozrobotics/capstone1_ws/src/visual_odometry/KITTI_sequence_1"
+    data_dir = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets/KITTI_sequence_1') #"/home/uozrobotics/capstone1_ws/src/visual_odometry/KITTI_sequence_1"
     vo = VisualOdometry(data_dir)
 
     play_trip(vo.images)
 
     gt_path = []
     estimated_path = []
-    for i, gt_pose in enumerate(tqdm(vo.gt_poses, unit="pose")):
-        if i == 0:
-            cur_pose = gt_pose
-        else:
-            q1, q2 = vo.get_matches(i)
-            transf = vo.get_pose(q1, q2)
-            cur_pose = np.matmul(cur_pose, np.linalg.inv(transf))
-            print("\nGround Truth Pose:\n" + str(gt_pose))
-            print("\n Current Pose:\n" + str(cur_pose))
-            print("The curent pose used x,y: \n" + str(cur_pose[0,3]) + "   " + str(cur_pose[2,3]))
-        gt_path.append((gt_pose[0, 3], gt_pose[2, 3]))
-        estimated_path.append((cur_pose[0, 3], cur_pose[2, 3]))
-    plotting.visualize_paths(gt_path, estimated_path, "SURF-ORB Visual Odom", file_out=os.path.basename(data_dir)+"surf_orb.html")
+    cur_pose = vo.gt_poses[0]
+    cumulative_error = 0.0
+    # CSV setup
+    csv_path = os.path.join(data_dir, "surf_orb_vo_results.csv")
+    with open(csv_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["frame", "raw_matches", "inliers", "ms_per_frame", "cumulative_error"])
 
+        for i in tqdm(range(1, len(vo.gt_poses)), unit="frame"):
+                start = time.time()
 
-# def main():
+                q1, q2, raw, inliers, kp1, kp2, good = vo.get_matches(i)
+                transf = vo.get_pose(q1, q2)
+                cur_pose = np.dot(cur_pose, np.linalg.inv(transf))
+
+                gt_pose = vo.gt_poses[i]
+                gt_x, gt_z = gt_pose[0, 3], gt_pose[2, 3]
+                est_x, est_z = cur_pose[0, 3], cur_pose[2, 3]
+                error = np.sqrt((gt_x - est_x) ** 2 + (gt_z - est_z) ** 2)
+                cumulative_error += error
+                print("\nGround Truth Pose:\n" + str(gt_pose))
+                print("\n Current Pose:\n" + str(cur_pose))
+                print("The curent pose used x,y: \n" + str(cur_pose[0,3]) + "   " + str(cur_pose[2,3]))
+
+                # Save match visualization
+                match_img = cv2.drawMatches(vo.images[i - 1], kp1, vo.images[i], kp2, good, None,
+                                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+                cv2.imwrite(os.path.join(vo.matches_dir, f"match_{i:04d}.png"), match_img)
+
+                elapsed_ms = (time.time() - start) * 1000
+
+                writer.writerow([i, raw, inliers, round(elapsed_ms, 2), round(cumulative_error, 4)])
+
+                gt_path.append((gt_x, gt_z))
+                estimated_path.append((est_x, est_z))
+
+        print(f"[INFO] Results saved to {csv_path}")
+        plotting.visualize_paths(gt_path, estimated_path,
+                                "SURF-ORB Monocular Visual Odometry",
+                                file_out=os.path.basename(data_dir) + ".html")
+    # def main():
 #     data = get_data()/
 #     vo = VisualOdometry(params)
 #     output = []
