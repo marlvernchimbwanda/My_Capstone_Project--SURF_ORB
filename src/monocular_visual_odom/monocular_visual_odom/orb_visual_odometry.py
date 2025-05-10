@@ -225,7 +225,7 @@ class VisualOdometry():
 
 def main():
     root = os.getcwd()
-    data_dir = os.path.join(root, 'datasets/KITTI_sequence_1')
+    data_dir = os.path.join(root, 'datasets/KITTI_sequence_2')
     vo = VisualOdometry(data_dir)
 
     play_trip(vo.images)  # Comment out to not play the trip

@@ -15,9 +15,9 @@ class VisualOdometry():
         self.images = self._load_images(os.path.join(data_dir, "image_l"))
         
         # Initialize SURF for keypoint detection
-        self.surf = cv2.xfeatures2d.SURF_create(hessianThreshold=3000)
+        self.surf = cv2.xfeatures2d.SURF.create(hessianThreshold=50)
         # Initialize ORB for descriptor extraction
-        self.orb = cv2.ORB_create(3000)
+        self.orb = cv2.ORB.create(3000)
         
         FLANN_INDEX_LSH = 6
         index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
@@ -107,7 +107,7 @@ class VisualOdometry():
 
     def get_matches(self, i):
         """
-        This function detect and compute keypoints and descriptors from the i-1'th and i'th image using the class orb object
+        This function detect and compute keypoints and descriptors from the i-1'th and i'th image using the surf_orb
 
         Parameters
         ----------
@@ -121,7 +121,7 @@ class VisualOdometry():
 
         # Detect keypoints using SURF
         kp1 = self.surf.detect(self.images[i - 1], None)
-        kp2 = self.surf.detect(self.images[i], None)
+        kp2  = self.surf.detect(self.images[i], None)
         
         # Compute descriptors using ORB
         kp1, des1 = self.orb.compute(self.images[i - 1], kp1)
@@ -129,7 +129,7 @@ class VisualOdometry():
         
         matches = self.flann.knnMatch(des1, des2, k=2)
         
-        good = []
+        good = [] #list with all good matches
         try:
             for m, n in matches:
                 if m.distance < 0.8 * n.distance:
@@ -139,11 +139,36 @@ class VisualOdometry():
 
         q1 = np.float32([kp1[m.queryIdx].pt for m in good])
         q2 = np.float32([kp2[m.trainIdx].pt for m in good])
+
+        draw_params = dict(matchColor = -1, # draw matches in green color
+                 singlePointColor = None,
+                 matchesMask = None, # draw only inliers
+                 flags = 2)
+        
+        img3 = cv2.drawMatches(self.images[i],kp1,self.images[i-1], kp2,good,None, **draw_params)
+        cv2.imshow("image", img3)
+        cv2.waitKey(750)
+
         return q1, q2
 
     def get_pose(self, q1, q2):
-        E, _ = cv2.findEssentialMat(q1, q2, self.K, threshold=1)
-        R, t = self.decomp_essential_mat(E, q1, q2)
+        """
+        Calculates the transformation matrix
+
+        Parameters
+        ----------
+        q1 (ndarray): The good keypoints matches position in i-1'th image
+        q2 (ndarray): The good keypoints matches position in i'th image
+
+        Returns
+        -------
+        transformation_matrix (ndarray): The transformation matrix
+        """
+        E, _ = cv2.findEssentialMat(q1, q2, self.K) # the essential matrix derived from the epipolar geometry describes how points in one image corresponds to lines in the other
+        # print("Essential Matrix Shape:", E.shape)
+        print("Essential Matrix:", E)
+
+        R, t = self.decomp_essential_mat(E, q1, q2) #after decompose we get rotation and translation
         transformation_matrix = self._form_transf(R, np.squeeze(t))
         return transformation_matrix
 
@@ -162,23 +187,25 @@ class VisualOdometry():
         -------
         right_pair (list): Contains the rotation matrix and translation vector
         """
-        R1, R2, t = cv2.decomposeEssentialMat(E)
-        t = np.squeeze(t)
-        pairs = [[R1, t], [R1, -t], [R2, t], [R2, -t]]
-        
+      
         def sum_z_cal_relative_scale(R, t):
             T = self._form_transf(R, t)
             P = np.matmul(np.concatenate((self.K, np.zeros((3, 1))), axis=1), T)
-            hom_Q1 = cv2.triangulatePoints(self.P, P, q1.T, q2.T)
+            hom_Q1 = cv2.triangulatePoints(self.P, P, q1.T, q2.T) #triangualtion to  get 3d world points
             hom_Q2 = np.matmul(T, hom_Q1)
-            uhom_Q1 = hom_Q1[:3, :] / hom_Q1[3, :]
+            uhom_Q1 = hom_Q1[:3, :] / hom_Q1[3, :] 
             uhom_Q2 = hom_Q2[:3, :] / hom_Q2[3, :]
             sum_of_pos_z_Q1 = sum(uhom_Q1[2, :] > 0)
             sum_of_pos_z_Q2 = sum(uhom_Q2[2, :] > 0)
             relative_scale = np.mean(np.linalg.norm(uhom_Q1.T[:-1] - uhom_Q1.T[1:], axis=-1) /
                                      np.linalg.norm(uhom_Q2.T[:-1] - uhom_Q2.T[1:], axis=-1))
+          
             return sum_of_pos_z_Q1 + sum_of_pos_z_Q2, relative_scale
-
+        
+        R1, R2, t = cv2.decomposeEssentialMat(E)
+        t = np.squeeze(t)
+        pairs = [[R1, t], [R1, -t], [R2, t], [R2, -t]] #4 possible pairs of transformation we can get out 
+        
         z_sums = []
         relative_scales = []
         for R, t in pairs:
@@ -191,12 +218,13 @@ class VisualOdometry():
         relative_scale = relative_scales[right_pair_idx]
         R1, t = right_pair
         t = t * relative_scale
+
         return [R1, t]
 
 
 def main():
     root = os.getcwd()
-    data_dir = os.path.join(root, 'datasets/KITTI_sequence_1') #"/home/uozrobotics/capstone1_ws/src/visual_odometry/KITTI_sequence_1"
+    data_dir = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets /KITTI_sequence_3') #"/home/uozrobotics/capstone1_ws/src/visual_odometry/KITTI_sequence_1"
     vo = VisualOdometry(data_dir)
 
     play_trip(vo.images)
@@ -210,24 +238,27 @@ def main():
             q1, q2 = vo.get_matches(i)
             transf = vo.get_pose(q1, q2)
             cur_pose = np.matmul(cur_pose, np.linalg.inv(transf))
+            print("\nGround Truth Pose:\n" + str(gt_pose))
+            print("\n Current Pose:\n" + str(cur_pose))
+            print("The curent pose used x,y: \n" + str(cur_pose[0,3]) + "   " + str(cur_pose[2,3]))
         gt_path.append((gt_pose[0, 3], gt_pose[2, 3]))
         estimated_path.append((cur_pose[0, 3], cur_pose[2, 3]))
-    plotting.visualize_paths(gt_path, estimated_path, "Monocular Visual Odometry Using SURF-ORB", file_out=os.path.basename(data_dir) + ".html")
+    plotting.visualize_paths(gt_path, estimated_path, "SURF-ORB Visual Odom", file_out=os.path.basename(data_dir)+"surf_orb.html")
 
 
-def main():
-    data = get_data()
-    vo = VisualOdometry(params)
-    output = []
-    for image in data:
-        new_pose = vo.step(image)
-        output.append(new_pose)
-    evaluate_results(output)
+# def main():
+#     data = get_data()/
+#     vo = VisualOdometry(params)
+#     output = []
+#     for image in data:
+#         new_pose = vo.step(image)
+#         output.append(new_pose)
+#     evaluate_results(output)
 
 
-def callback(self, image):
-    new_pose = self.vo.step(image)
-    self.pub.publish(new_pose)
+# def callback(self, image):
+#     new_pose = self.vo.step(image)
+#     self.pub.publish(new_pose)
 
 if __name__ == "__main__":
     main()
