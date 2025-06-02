@@ -1,10 +1,10 @@
 import os
 import numpy as np
 import cv2
-
+import time
+import csv
 from lib.visualization import plotting
 from lib.visualization.video import play_trip
-
 from tqdm import tqdm
 
 
@@ -13,7 +13,12 @@ class VisualOdometry():
         self.K, self.P = self._load_calib(os.path.join(data_dir, 'calib.txt'))
         self.gt_poses = self._load_poses(os.path.join(data_dir,"poses.txt"))
         self.images = self._load_images(os.path.join(data_dir,"image_l"))
-        self.orb = cv2.ORB.create(3000)
+
+         # Folder to store match visualizations
+        self.matches_dir = os.path.join(data_dir, "orb_matches500")
+        os.makedirs(self.matches_dir, exist_ok=True)
+
+        self.orb = cv2.ORB.create()
         FLANN_INDEX_LSH = 6
         index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
         search_params = dict(checks=50)
@@ -135,7 +140,7 @@ class VisualOdometry():
         # Get the image points form the good matches
         q1 = np.float32([kp1[m.queryIdx].pt for m in good])
         q2 = np.float32([kp2[m.trainIdx].pt for m in good])
-        return q1, q2
+        return q1, q2 , len(matches), len(good), kp1, kp2, good
 
     def get_pose(self, q1, q2):
         """
@@ -225,23 +230,67 @@ class VisualOdometry():
 
 def main():
     root = os.getcwd()
-    data_dir = os.path.join(root, 'datasets/KITTI_sequence_2')
+    data_dir = os.path.join(root, 'datasets/KITTI_sequence_7') #try also for 0,1,2,3,4,5,6,7
     vo = VisualOdometry(data_dir)
 
     play_trip(vo.images)  # Comment out to not play the trip
 
     gt_path = []
     estimated_path = []
-    for i, gt_pose in enumerate(tqdm(vo.gt_poses, unit="pose")):
-        if i == 0:
-            cur_pose = gt_pose
-        else:
-            q1, q2 = vo.get_matches(i)
-            transf = vo.get_pose(q1, q2)
-            cur_pose = np.matmul(cur_pose, np.linalg.inv(transf))
-        gt_path.append((gt_pose[0, 3], gt_pose[2, 3]))
-        estimated_path.append((cur_pose[0, 3], cur_pose[2, 3]))
-    plotting.visualize_paths(gt_path, estimated_path, "Visual Odometry", file_out=os.path.basename(data_dir) + ".html")
+    cur_pose = vo.gt_poses[0]
+    cumulative_error = 0.0
+
+     # CSV setup
+    csv_path = os.path.join(data_dir, f"{data_dir}_ORB_vo_results11.csv")
+    with open(csv_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["frame", "raw_matches", "inliers", "ms_per_frame", "cumulative_error"])
+
+        for i in tqdm(range(1, len(vo.gt_poses)), unit="frame"):
+                start = time.time()
+
+                q1, q2, raw, inliers, kp1, kp2, good = vo.get_matches(i)
+                transf = vo.get_pose(q1, q2)
+                cur_pose = np.dot(cur_pose, np.linalg.inv(transf))
+
+                gt_pose = vo.gt_poses[i]
+                gt_x, gt_z = gt_pose[0, 3], gt_pose[2, 3]
+                est_x, est_z = cur_pose[0, 3], cur_pose[2, 3]
+                error = np.sqrt((gt_x - est_x) ** 2 + (gt_z - est_z) ** 2)
+                cumulative_error += error
+                print("\nGround Truth Pose:\n" + str(gt_pose))
+                print("\n Current Pose:\n" + str(cur_pose))
+                print("The curent pose used x,y: \n" + str(cur_pose[0,3]) + "   " + str(cur_pose[2,3]))
+
+                # Save match visualization
+                match_img = cv2.drawMatches(vo.images[i - 1], kp1, vo.images[i], kp2, good, None,
+                                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+                cv2.imwrite(os.path.join(vo.matches_dir, f"match_{i:04d}.png"), match_img)
+
+                elapsed_ms = (time.time() - start) * 1000
+
+                writer.writerow([i, raw, inliers, round(elapsed_ms, 2), round(cumulative_error, 4)])
+
+                gt_path.append((gt_x, gt_z))
+                estimated_path.append((est_x, est_z))
+
+        print(f"[INFO] Results saved to {csv_path}")
+        plotting.visualize_paths(gt_path, estimated_path,
+                                "ORB Monocular Visual Odometry",
+                                file_out=os.path.basename(data_dir) + "_orb.html")
+
+
+
+    # for i, gt_pose in enumerate(tqdm(vo.gt_poses, unit="pose")):
+    #     if i == 0:
+    #         cur_pose = gt_pose
+    #     else:
+    #         q1, q2 = vo.get_matches(i)
+    #         transf = vo.get_pose(q1, q2)
+    #         cur_pose = np.matmul(cur_pose, np.linalg.inv(transf))
+    #     gt_path.append((gt_pose[0, 3], gt_pose[2, 3]))
+    #     estimated_path.append((cur_pose[0, 3], cur_pose[2, 3]))
+    # plotting.visualize_paths(gt_path, estimated_path, "Visual Odometry", file_out=os.path.basename(data_dir) + ".html")
 
 
 if __name__ == "__main__":
