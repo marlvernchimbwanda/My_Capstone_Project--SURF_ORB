@@ -11,6 +11,41 @@ src/papers/
 src/visual_odometry/
 src/datasets/VOCtrainval_11-May-2009.tar
 src/datasets/VOCtrainval_11-May-2009/
+src/datasets/KITTI_sequence_1/orb_matches/
+src/datasets/KITTI_sequence_1/orb_matches500/
+src/datasets/KITTI_sequence_1/surf_orb_matches/
+src/datasets/KITTI_sequence_1/surf_orb_matches500/
+ src/monocular_visual_odom/monocular_visual_odom/lib/visualization
+ build/
+ install/
+ .vscode/
 
+src/datasets/KITTI_sequence_2/orb_matches/
+src/datasets/KITTI_sequence_2/orb_matches500/
+src/datasets/KITTI_sequence_2/surf_orb_matches/
+src/datasets/KITTI_sequence_2/surf_orb_matches500/
 
+src/datasets/KITTI_sequence_3/orb_matches/
+src/datasets/KITTI_sequence_3/orb_matches500/
+src/datasets/KITTI_sequence_3/surf_orb_matches/
+src/datasets/KITTI_sequence_3/surf_orb_matches500/
 
+src/datasets/KITTI_sequence_4/orb_matches/
+src/datasets/KITTI_sequence_4/orb_matches500/
+src/datasets/KITTI_sequence_4/surf_orb_matches/
+src/datasets/KITTI_sequence_4/surf_orb_matches500/
+
+src/datasets/KITTI_sequence_5/orb_matches/
+src/datasets/KITTI_sequence_5/orb_matches500/
+src/datasets/KITTI_sequence_5/surf_orb_matches/
+src/datasets/KITTI_sequence_5/surf_orb_matches500/
+
+src/datasets/KITTI_sequence_6/orb_matches/
+src/datasets/KITTI_sequence_6/orb_matches500/
+src/datasets/KITTI_sequence_6/surf_orb_matches/
+src/datasets/KITTI_sequence_6/surf_orb_matches500/
+
+src/datasets/KITTI_sequence_7/orb_matches/
+src/datasets/KITTI_sequence_7/orb_matches500/
+src/datasets/KITTI_sequence_7/surf_orb_matches/
+src/datasets/KITTI_sequence_7/surf_orb_matches500/

@@ -9,15 +9,15 @@ import psutil
 def get_memory_usage():
     return psutil.Process().memory_info().rss / (1024 ** 2)  # Convert to MB
 
-hessian_threshold = 100 #find the hessian threshhold which will help us determine how much to keep
+hessian_threshold = 3000 #find the hessian threshhold which will help us determine how much to keep
 surf = cv.xfeatures2d.SURF_create(hessian_threshold, nOctaves=4, nOctaveLayers = 3)
-orb = cv.ORB_create(hessian_threshold, scaleFactor=1.2,nlevels=4)
+orb = cv.ORB_create(hessian_threshold)
 
 root = os.getcwd()
-img1_path = os.path.join(root, 'datasets/KITTI_sequence_1/image_l/000008.png')
-img2_path = os.path.join(root, 'datasets/KITTI_sequence_1/image_l/000009.png')
-img1 = cv.imread('/home/uozrobotics/computer_vison_ros2/robovison_ros2_ws/src/robovision_ros2/data/images/mariachi.jpg', cv.IMREAD_GRAYSCALE)
-img2 = cv.imread('/home/uozrobotics/computer_vison_ros2/robovison_ros2_ws/src/robovision_ros2/data/images/mariachi.jpg', cv.IMREAD_GRAYSCALE)
+img1_path = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets/boat/img0.pgm')
+img2_path = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets/boat/img5.pgm')
+img1 = cv.imread (img1_path,cv.IMREAD_GRAYSCALE)
+img2 = cv.imread  (img2_path, cv.IMREAD_GRAYSCALE)
 
 # Measure memory before processing
 mem_before_surf_orb = get_memory_usage()
@@ -70,7 +70,7 @@ def KnnBruteForce():
     nNeighbors = 2
     matches = bf.knnMatch(descriptors1,descriptors2, k=nNeighbors)
     good_Matches = []
-    test_ratio = 0.75
+    test_ratio = 0.8
     for m, n in matches:
         if m.distance < test_ratio*n.distance:
             good_Matches.append([m])
