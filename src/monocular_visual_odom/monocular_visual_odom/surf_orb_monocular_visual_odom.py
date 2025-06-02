@@ -5,7 +5,6 @@ import time
 import csv
 from lib.visualization import plotting
 from lib.visualization.video import play_trip
-
 from tqdm import tqdm
 
 
@@ -16,13 +15,13 @@ class VisualOdometry():
         self.images = self._load_images(os.path.join(data_dir, "image_l"))
         
           # Folder to store match visualizations
-        self.matches_dir = os.path.join(data_dir, "surf_orb_matches")
+        self.matches_dir = os.path.join(data_dir, "surf_orb_matches500")
         os.makedirs(self.matches_dir, exist_ok=True)
 
         # Initialize SURF for keypoint detection
-        self.surf = cv2.xfeatures2d.SURF.create(hessianThreshold=300)
+        self.surf = cv2.xfeatures2d.SURF.create(hessianThreshold=500)
         # Initialize ORB for descriptor extraction
-        self.orb = cv2.ORB.create(3000)
+        self.orb = cv2.ORB.create()
         
         FLANN_INDEX_LSH = 6
         index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
@@ -229,7 +228,7 @@ class VisualOdometry():
 
 def main():
     root = os.getcwd()
-    data_dir = os.path.join(root, '/home/uozrobotics/capstone1_ws/src/datasets/KITTI_sequence_1') #"/home/uozrobotics/capstone1_ws/src/visual_odometry/KITTI_sequence_1"
+    data_dir = os.path.join(root, 'datasets/KITTI_sequence_7') #try also for 0,1,2,3,4,5,6,7
     vo = VisualOdometry(data_dir)
 
     play_trip(vo.images)
@@ -239,7 +238,7 @@ def main():
     cur_pose = vo.gt_poses[0]
     cumulative_error = 0.0
     # CSV setup
-    csv_path = os.path.join(data_dir, "surf_orb_vo_results.csv")
+    csv_path = os.path.join(data_dir, f"{data_dir}_surf_orb_vo_results.csv")
     with open(csv_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["frame", "raw_matches", "inliers", "ms_per_frame", "cumulative_error"])
@@ -271,24 +270,13 @@ def main():
 
                 gt_path.append((gt_x, gt_z))
                 estimated_path.append((est_x, est_z))
+        
 
         print(f"[INFO] Results saved to {csv_path}")
         plotting.visualize_paths(gt_path, estimated_path,
                                 "SURF-ORB Monocular Visual Odometry",
-                                file_out=os.path.basename(data_dir) + ".html")
-    # def main():
-#     data = get_data()/
-#     vo = VisualOdometry(params)
-#     output = []
-#     for image in data:
-#         new_pose = vo.step(image)
-#         output.append(new_pose)
-#     evaluate_results(output)
-
-
-# def callback(self, image):
-#     new_pose = self.vo.step(image)
-#     self.pub.publish(new_pose)
+                                file_out=os.path.basename(data_dir) + "_surf_orb.html")
+        
 
 if __name__ == "__main__":
     main()
